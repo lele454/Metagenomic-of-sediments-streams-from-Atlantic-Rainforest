@@ -1,4 +1,5 @@
-#Script 03 – Functional Pathways Related to Biogeochemical Cycles
+"""
+#Script 03 - Functional Pathways Related to Biogeochemical Cycles
 
 #Description
 -----------
@@ -6,39 +7,39 @@ This script analyses the functional gene profiles associated with
 biogeochemical cycles along the environmental degradation gradient.  It:
 
   1. Loads DRAM v1.5.1 gene abundance data (CPM-normalised)
-  2. Applies the gene selection criteria (detection ≥ 12/14 metagenomes;
-     mean CPM ≥ 4 in ≥ 1 conservation state; canonical DRAM-v/KEGG marker)
+  2. Applies the gene selection criteria (detection >= 12/14 metagenomes;
+     mean CPM >= 4 in >= 1 conservation state; canonical DRAM-v/KEGG marker)
   3. Computes Spearman rank correlations between PI and each marker gene
-  4. Fits Gaussian GLMs (CPM ~ β₀ + β₁ × PI) with Bonferroni correction
+  4. Fits Gaussian GLMs (CPM ~ beta0 + beta1 x PI) with Bonferroni correction
   5. Calculates three functional integrity indices (FII, AAR, GGI)
   6. Produces Figure 4 (coordinated biogeochemical cycle shifts) and
-     Figure S6 (R² summary)
+     Figure S6 (R2 summary)
 
 #Canonical marker genes analysed (18 total)
 -------------------------------------------
   Nitrogen : nifH, amoA, nosZ, nirK, nirS, nxrA/B
   Carbon   : mcrA, pmoA (pmoA-A / pmoA-B), cbbL/rbcL
   Sulfur   : dsrA/B, soxB
-  Phosphorus: phoD/phoX, pstS, ppK/ppx–gppA
+  Phosphorus: phoD/phoX, pstS, ppK/ppx-gppA
   Metals   : merA, arsC
   Aromatic : aclA/B
 
 #Functional indices
 ------------------
-  FII = Σ(beneficial genes) / Σ(detrimental genes)
+  FII = sum(beneficial genes) / sum(detrimental genes)
         where beneficial = nosZ, pmoA-B, soxB, cbbL/rbcL, nirK+nirS, ppx-gppA
         and   detrimental = mcrA, pmoA-A, norB, dsrA/B, amoA
 
-  AAR = Σ(aerobic genes) / Σ(anaerobic genes)
+  AAR = sum(aerobic genes) / sum(anaerobic genes)
         where aerobic    = nosZ, pmoA-B, soxB, cbbL/rbcL, nirK+nirS
         and   anaerobic  = mcrA, dsrA/B, pmoA-A, norB
 
-  GGI = (28 × mcrA) + (265 × norB) − (28 × pmoA-B) − (265 × nosZ)
+  GGI = (28 x mcrA) + (265 x norB) − (28 x pmoA-B) − (265 x nosZ)
         (IPCC AR6 GWP100 coefficients: CH₄ = 28, N₂O = 265)
 
 #Input files
 -----------
-  - data/DRAM_CPM.csv    : gene × samples matrix (CPM values, from DRAM-v)
+  - data/DRAM_CPM.csv    : gene x samples matrix (CPM values, from DRAM-v)
   - data/metadata.csv    : SampleID, Degradation, PI, HFP
 
 
@@ -52,13 +53,13 @@ Usage
   python 03_biogeochemical_cycles.py
 
 # ---------------------------------------------------------------------------
+"""
 
 import os
 import warnings
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 from matplotlib.lines import Line2D
 from scipy import stats
 import statsmodels.api as sm
@@ -130,8 +131,8 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame]:
 
     Returns
     -------
-    cpm  : pd.DataFrame  – gene × samples (CPM)
-    meta : pd.DataFrame  – samples × variables (PI, HFP, Degradation, …)
+    cpm  : pd.DataFrame  - gene x samples (CPM)
+    meta : pd.DataFrame  - samples x variables (PI, HFP, Degradation, …)
     """
     cpm  = pd.read_csv(os.path.join(DATA_DIR, "DRAM_CPM.csv"), index_col=0)
     meta = pd.read_csv(os.path.join(DATA_DIR, "metadata.csv"), index_col="SampleID")
@@ -146,19 +147,19 @@ def filter_genes(cpm: pd.DataFrame, meta: pd.DataFrame,
                  min_samples: int = 12, min_cpm: float = 4.0) -> pd.DataFrame:
     """
     Retain only genes that meet ALL selection criteria:
-      (i)  detected (CPM > 0) in ≥ min_samples metagenomes
-      (ii) mean CPM ≥ min_cpm in at least one conservation state
+      (i)  detected (CPM > 0) in >= min_samples metagenomes
+      (ii) mean CPM >= min_cpm in at least one conservation state
 
     Parameters
     ----------
-    cpm         : gene × samples CPM matrix
+    cpm         : gene x samples CPM matrix
     meta        : sample metadata (must contain 'Degradation')
     min_samples : detection threshold (default 12 / 14)
-    min_cpm     : minimum mean CPM in ≥ 1 group (default 4)
+    min_cpm     : minimum mean CPM in >= 1 group (default 4)
 
     Returns
     -------
-    cpm_filtered : gene × samples, only genes passing all criteria
+    cpm_filtered : gene x samples, only genes passing all criteria
     """
     pres_cols = meta.index[meta["Degradation"] == "Preserved"].tolist()
     deg_cols  = meta.index[meta["Degradation"] == "Degraded"].tolist()
@@ -180,15 +181,15 @@ def filter_genes(cpm: pd.DataFrame, meta: pd.DataFrame,
 
 
 # ---------------------------------------------------------------------------
-# 4.  Spearman correlations (PI × gene)
+# 4.  Spearman correlations (PI x gene)
 # ---------------------------------------------------------------------------
 def spearman_pi(cpm: pd.DataFrame, meta: pd.DataFrame) -> pd.DataFrame:
     """
-    Compute Spearman ρ and p-value between PI and each gene's CPM.
+    Compute Spearman rho and p-value between PI and each gene's CPM.
 
     Returns
     -------
-    df_sp : pd.DataFrame – Gene, rho, p_value
+    df_sp : pd.DataFrame - Gene, rho, p_value
     """
     pi = meta["PI"].values
     rows = []
@@ -200,13 +201,13 @@ def spearman_pi(cpm: pd.DataFrame, meta: pd.DataFrame) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
-# 5.  Gaussian GLM: CPM ~ β₀ + β₁ × PI  (per gene)
+# 5.  Gaussian GLM: CPM ~ beta0 + beta1 x PI  (per gene)
 # ---------------------------------------------------------------------------
 def glm_per_gene(cpm:  pd.DataFrame,
                  meta: pd.DataFrame) -> pd.DataFrame:
     """
     Fit a Gaussian GLM (identity link = OLS) for each marker gene.
-    Reports β₁, pseudo-R², p-value, and Bonferroni-corrected significance.
+    Reports beta1, pseudo-R2, p-value, and Bonferroni-corrected significance.
 
     Returns
     -------
@@ -233,8 +234,8 @@ def glm_per_gene(cpm:  pd.DataFrame,
             "p_value":     p_val,
             "Bonf_sig":    sig
         })
-        print(f"  {gene:<20} β₁={beta1:+.2f}  R²={r2:.3f}  "
-              f"p={'< 0.00278' if sig else p_val:.4f}  "
+        print(f"  {gene:<20} beta1={beta1:+.2f}  R2={r2:.3f}  "
+              f"p={p_str}  "
               f"{'*' if sig else ''}")
 
     df_glm = pd.DataFrame(rows)
@@ -260,7 +261,7 @@ def compute_indices(cpm: pd.DataFrame) -> pd.DataFrame:
 
     Returns
     -------
-    df_idx : pd.DataFrame – SampleID × {FII, AAR, GGI}
+    df_idx : pd.DataFrame - SampleID x {FII, AAR, GGI}
     """
     eps = 1e-10   # avoid division by zero
 
@@ -274,7 +275,7 @@ def compute_indices(cpm: pd.DataFrame) -> pd.DataFrame:
     anaerobic = sum(_get_gene(cpm, g) for g in ANAEROBIC)
     AAR = aerobic / (anaerobic + eps)
 
-    # GGI  = (28 × mcrA) + (265 × norB) − (28 × pmoA-B) − (265 × nosZ)
+    # GGI  = (28 x mcrA) + (265 x norB) − (28 x pmoA-B) − (265 x nosZ)
     mcrA  = _get_gene(cpm, "mcrA")
     norB  = _get_gene(cpm, "norB")
     pmoAB = _get_gene(cpm, "pmoA-B")
@@ -298,7 +299,7 @@ def regress_index(y: pd.Series, pi: pd.Series,
     target = {"FII": 1.0, "AAR": 1.0, "GGI": 0.0}.get(index_name, 0.0)
     pi_eq  = (target - beta0) / beta1 if beta1 != 0 else np.nan
 
-    print(f"  {index_name}: R²={r2:.3f}  β₁={beta1:+.4f}  "
+    print(f"  {index_name}: R2={r2:.3f}  beta1={beta1:+.4f}  "
           f"p={p_val:.2e}  PI_eq={pi_eq:.2f}")
     return {
         "Index":    index_name,
@@ -311,7 +312,7 @@ def regress_index(y: pd.Series, pi: pd.Series,
 
 
 # ---------------------------------------------------------------------------
-# 7.  Figure 4 – Coordinated biogeochemical cycle shifts
+# 7.  Figure 4 - Coordinated biogeochemical cycle shifts
 # ---------------------------------------------------------------------------
 def plot_figure4(cpm:    pd.DataFrame,
                  meta:   pd.DataFrame,
@@ -324,7 +325,7 @@ def plot_figure4(cpm:    pd.DataFrame,
     pi     = meta["PI"].values
     is_deg = meta["Degradation"] == "Degraded"
 
-    # Determine layout: ceil(n_genes / 4) rows × 4 columns
+    # Determine layout: ceil(n_genes / 4) rows x 4 columns
     genes  = cpm.index.tolist()
     n_cols = 4
     n_rows = int(np.ceil(len(genes) / n_cols))
@@ -351,12 +352,12 @@ def plot_figure4(cpm:    pd.DataFrame,
             y_hat = b0 + b1 * pi_range
             ax.plot(pi_range, y_hat, "k-", lw=1.2, zorder=2)
 
-            # Annotate R² and β₁
+            # Annotate R2 and beta1
             r2  = row["R2"].values[0]
             sig = row["Bonf_sig"].values[0]
             ax.set_title(
                 f"$\\it{{{gene.replace('/', '_')}}}$\n"
-                f"β₁={b1:+.2f}  R²={r2:.3f}{'*' if sig else ''}",
+                f"beta1={b1:+.2f}  R2={r2:.3f}{'*' if sig else ''}",
                 fontsize=8
             )
         else:
@@ -382,22 +383,23 @@ def plot_figure4(cpm:    pd.DataFrame,
                fontsize=8, frameon=False, ncol=2)
 
     fig.suptitle(
-        "Figure 4 – Coordinated shifts in biogeochemical marker genes\n"
-        "(* Bonferroni-significant, α = 0.00278)",
+        "Figure 4 - Coordinated shifts in biogeochemical marker genes\n"
+        "(* Bonferroni-significant, alpha = 0.00278)",
         fontsize=11, fontweight="bold"
     )
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
     fname = os.path.join(FIG_DIR, "fig4_biogeochem_cycles.tiff")
-    fig.savefig(fname, dpi=DPI, compression="tiff_lzw")
+    plt.gcf().savefig(fname, dpi=DPI, bbox_inches='tight')  # PNG buffer
+    _save_tiff_lzw(fname, DPI)
     print(f"  Saved: {fname}")
     plt.close(fig)
 
 
 # ---------------------------------------------------------------------------
-# 8.  Figure S6 – R² summary barplot
+# 8.  Figure S6 - R2 summary barplot
 # ---------------------------------------------------------------------------
 def plot_r2_summary(df_glm: pd.DataFrame) -> None:
-    """Horizontal barplot of R² per gene, coloured by Bonferroni significance."""
+    """Horizontal barplot of R2 per gene, coloured by Bonferroni significance."""
     df_sorted = df_glm.sort_values("R2")
     colours   = [COL_DEG if s else "grey" for s in df_sorted["Bonf_sig"]]
 
@@ -405,9 +407,9 @@ def plot_r2_summary(df_glm: pd.DataFrame) -> None:
     bars = ax.barh(df_sorted["Gene"], df_sorted["R2"],
                    color=colours, edgecolor="white")
     ax.axvline(0.90, ls="--", lw=0.8, color="black", alpha=0.5,
-               label="R² = 0.90")
-    ax.set_xlabel("R² (GLM: CPM ~ PI)", fontsize=10)
-    ax.set_title("Figure S6 – Predictability of biogeochemical genes by PI",
+               label="R2 = 0.90")
+    ax.set_xlabel("R2 (GLM: CPM ~ PI)", fontsize=10)
+    ax.set_title("Figure S6 - Predictability of biogeochemical genes by PI",
                  fontsize=10)
     ax.set_xlim(0, 1.05)
     ax.tick_params(axis="y", labelsize=7)
@@ -417,20 +419,21 @@ def plot_r2_summary(df_glm: pd.DataFrame) -> None:
     ax.legend(fontsize=8, frameon=False)
     ax.spines[["top", "right"]].set_visible(False)
 
-    # Annotate R² values
+    # Annotate R2 values
     for bar, val in zip(bars, df_sorted["R2"]):
         ax.text(val + 0.01, bar.get_y() + bar.get_height() / 2,
                 f"{val:.3f}", va="center", ha="left", fontsize=6)
 
     fig.tight_layout()
     fname = os.path.join(FIG_DIR, "figS6_R2_summary.tiff")
-    fig.savefig(fname, dpi=DPI, compression="tiff_lzw")
+    plt.gcf().savefig(fname, dpi=DPI, bbox_inches='tight')  # PNG buffer
+    _save_tiff_lzw(fname, DPI)
     print(f"  Saved: {fname}")
     plt.close(fig)
 
 
 # ---------------------------------------------------------------------------
-# 9.  Figure S7 – Functional indices vs PI
+# 9.  Figure S7 - Functional indices vs PI
 # ---------------------------------------------------------------------------
 def plot_functional_indices(df_idx:   pd.DataFrame,
                             meta:     pd.DataFrame,
@@ -492,17 +495,18 @@ def plot_functional_indices(df_idx:   pd.DataFrame,
         ax.set_xlabel("Preservation Index", fontsize=10)
         ax.set_ylabel(ylabel, fontsize=9)
         ax.set_title(
-            f"{idx_name}\nR²={reg['R2']:.3f}  β₁={reg['beta1']:+.4f}",
+            f"{idx_name}\nR2={reg['R2']:.3f}  beta1={reg['beta1']:+.4f}",
             fontsize=10
         )
         ax.legend(fontsize=8, frameon=False)
         ax.spines[["top", "right"]].set_visible(False)
 
-    fig.suptitle("Figure S7 – Functional integrity indices along the PI gradient",
+    fig.suptitle("Figure S7 - Functional integrity indices along the PI gradient",
                  fontsize=11, fontweight="bold")
     fig.tight_layout()
     fname = os.path.join(FIG_DIR, "figS7_functional_indices.tiff")
-    fig.savefig(fname, dpi=DPI, compression="tiff_lzw")
+    plt.gcf().savefig(fname, dpi=DPI, bbox_inches='tight')  # PNG buffer
+    _save_tiff_lzw(fname, DPI)
     print(f"  Saved: {fname}")
     plt.close(fig)
 
@@ -519,7 +523,7 @@ def main() -> None:
     print("\n[Filter] Applying gene selection criteria …")
     cpm_filt = filter_genes(cpm, meta)
 
-    print("\n[Spearman] PI × gene correlations …")
+    print("\n[Spearman] PI x gene correlations …")
     df_sp = spearman_pi(cpm_filt, meta)
     print(df_sp.to_string(index=False))
 
@@ -529,7 +533,7 @@ def main() -> None:
     print("\n[Figure 4] Plotting biogeochemical cycle panels …")
     plot_figure4(cpm_filt, meta, df_glm)
 
-    print("\n[Figure S6] R² summary barplot …")
+    print("\n[Figure S6] R2 summary barplot …")
     plot_r2_summary(df_glm)
 
     print("\n[Indices] Computing FII, AAR, GGI …")
