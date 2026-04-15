@@ -1,4 +1,5 @@
-#Script 01 – Assessment of Indicator Taxa of Environmental Degradation
+"""
+#Script 01 - Assessment of Indicator Taxa of Environmental Degradation
 
 #Description
 -----------
@@ -18,13 +19,13 @@
 
 #Input files
 -----------
-  - bacteria_abundance.csv   : Relative abundance table (genera × samples)
-  - fungi_abundance.csv      : Relative abundance table (genera × samples)
-  - protist_abundance.csv    : Relative abundance table (genera × samples)
+  - bacteria_abundance.csv   : Relative abundance table (genera x samples)
+  - fungi_abundance.csv      : Relative abundance table (genera x samples)
+  - protist_abundance.csv    : Relative abundance table (genera x samples)
   - metadata.csv             : Per-sample metadata including PI and
                                degradation status (Preserved / Degraded)
     rows = genera (TaxID labels)
-    columns = sample IDs (Pres01–Pres07, Deg01–Deg07)
+    columns = sample IDs (Pres01-Pres07, Deg01-Deg07)
 
     SampleID, Degradation (Preserved/Degraded), PI (numeric),
     HFP (numeric), [+ any limnological variables]
@@ -41,13 +42,13 @@
 
 
 # ---------------------------------------------------------------------------
+"""
 
 import warnings
 import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.ticker as mticker
 from scipy import stats
 from scipy.stats import mannwhitneyu
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
@@ -67,8 +68,8 @@ TABLE_DIR  = "tables"
 os.makedirs(FIG_DIR,   exist_ok=True)
 os.makedirs(TABLE_DIR, exist_ok=True)
 
-COL_PRES = "#2E8B57"   # SeaGreen  – Preserved
-COL_DEG  = "#CC3333"   # Crimson   – Degraded
+COL_PRES = "#2E8B57"   # SeaGreen  - Preserved
+COL_DEG  = "#CC3333"   # Crimson   - Degraded
 
 DPI = 300
 
@@ -91,7 +92,7 @@ def load_data(group: str) -> tuple[pd.DataFrame, pd.DataFrame]:
     Returns
     -------
     abund : pd.DataFrame
-        Genera (rows) × samples (columns), relative abundances.
+        Genera (rows) x samples (columns), relative abundances.
     meta  : pd.DataFrame
         Samples (rows) with columns SampleID, Degradation, PI, HFP.
     """
@@ -115,7 +116,7 @@ def shannon_index(abund: pd.DataFrame) -> pd.Series:
     """
     Compute Shannon H' for each sample.
 
-    H' = -Σ (p_i × log(p_i))  where p_i are relative abundances > 0.
+    H' = -sum (p_i x log(p_i))  where p_i are relative abundances > 0.
     """
     def _h(col):
         p = col[col > 0]
@@ -169,8 +170,8 @@ def compare_alpha_diversity(abund: pd.DataFrame,
 
     result = {
         "Group":    group,
-        "H_pres":   f"{pres_vals.mean():.3f} ± {pres_vals.std(ddof=1):.3f}",
-        "H_deg":    f"{deg_vals.mean():.3f} ± {deg_vals.std(ddof=1):.3f}",
+        "H_pres":   f"{pres_vals.mean():.3f} +/- {pres_vals.std(ddof=1):.3f}",
+        "H_deg":    f"{deg_vals.mean():.3f} +/- {deg_vals.std(ddof=1):.3f}",
         "test":     test,
         "statistic": round(stat, 3),
         "p_value":  round(p_val, 3),
@@ -238,7 +239,8 @@ def plot_alpha_diversity(all_results: list,
                  fontsize=12, fontweight="bold")
     fig.tight_layout()
     fname = os.path.join(FIG_DIR, "alpha_diversity_comparison.tiff")
-    fig.savefig(fname, dpi=DPI, compression="tiff_lzw")
+    plt.gcf().savefig(fname, dpi=DPI, bbox_inches='tight')  # PNG buffer
+    _save_tiff_lzw(fname, DPI)
     print(f"  Saved: {fname}")
     plt.close(fig)
 
@@ -279,12 +281,12 @@ def differential_abundance(abund: pd.DataFrame,
 
 
 # ---------------------------------------------------------------------------
-# 3.  Pearson correlation with Preservation Index
+# 4.  Pearson correlation with Preservation Index
 # ---------------------------------------------------------------------------
 def pearson_with_pi(abund: pd.DataFrame,
                     meta:  pd.DataFrame) -> pd.DataFrame:
     """
-    Compute Pearson correlation between log₁₀(abundance + 1) of each genus
+    Compute Pearson correlation between log10(abundance + 1) of each genus
     and the continuous Preservation Index (PI).
 
     Returns
@@ -305,7 +307,7 @@ def pearson_with_pi(abund: pd.DataFrame,
 
 
 # ---------------------------------------------------------------------------
-# 4.  Random Forest – binary classification (LOO-CV)
+# 5.  Random Forest - binary classification (LOO-CV)
 # ---------------------------------------------------------------------------
 def rf_classifier(abund: pd.DataFrame,
                   meta:  pd.DataFrame) -> tuple[pd.DataFrame, float]:
@@ -315,10 +317,10 @@ def rf_classifier(abund: pd.DataFrame,
 
     Returns
     -------
-    importance_df : pd.DataFrame  – genera ranked by Mean Decrease in Impurity
-    loo_accuracy  : float         – LOO-CV overall accuracy
+    importance_df : pd.DataFrame  - genera ranked by Mean Decrease in Impurity
+    loo_accuracy  : float         - LOO-CV overall accuracy
     """
-    X = abund.T.values            # samples × genera
+    X = abund.T.values            # samples x genera
     y = (meta["Degradation"] == "Degraded").astype(int).values
 
     loo    = LeaveOneOut()
@@ -344,7 +346,7 @@ def rf_classifier(abund: pd.DataFrame,
 
 
 # ---------------------------------------------------------------------------
-# 5.  Random Forest – continuous regression (LOO-CV)
+# 6.  Random Forest - continuous regression (LOO-CV)
 # ---------------------------------------------------------------------------
 def rf_regressor(abund: pd.DataFrame,
                  meta:  pd.DataFrame) -> tuple[pd.DataFrame, float, float]:
@@ -354,9 +356,9 @@ def rf_regressor(abund: pd.DataFrame,
 
     Returns
     -------
-    importance_df : pd.DataFrame  – genera ranked by Mean Decrease in Impurity
-    loo_r2        : float         – LOO-CV R²
-    loo_p         : float         – one-tailed p-value (permutation, 999 perm)
+    importance_df : pd.DataFrame  - genera ranked by Mean Decrease in Impurity
+    loo_r2        : float         - LOO-CV R2
+    loo_p         : float         - one-tailed p-value (permutation, 999 perm)
     """
     X      = abund.T.values
     y      = meta["PI"].values
@@ -370,7 +372,7 @@ def rf_regressor(abund: pd.DataFrame,
 
     loo_r2 = r2_score(y, y_pred)
 
-    # Permutation test for significance of LOO-R²
+    # Permutation test for significance of LOO-R2
     n_perm = 999
     r2_null = []
     rng = np.random.default_rng(42)
@@ -397,11 +399,11 @@ def rf_regressor(abund: pd.DataFrame,
 
 
 # ---------------------------------------------------------------------------
-# 6.  Volcano plot
+# 7.  Volcano plot
 # ---------------------------------------------------------------------------
 def plot_volcano(df_da: pd.DataFrame, group: str, ax=None) -> None:
     """
-    Volcano plot: log₂FC (x) vs −log₁₀(FDR) (y).
+    Volcano plot: log₂FC (x) vs −log10(FDR) (y).
     Significant genera (FDR < 0.05, |log2FC| > 1) are coloured.
     """
     if ax is None:
@@ -431,14 +433,14 @@ def plot_volcano(df_da: pd.DataFrame, group: str, ax=None) -> None:
     ax.axvline( 1, ls=":",       lw=0.8, color="black", alpha=0.6)
 
     ax.set_xlabel("log₂ Fold Change (Degraded / Preserved)", fontsize=9)
-    ax.set_ylabel("−log₁₀(FDR)", fontsize=9)
-    ax.set_title(f"Differential abundance – {group.capitalize()}", fontsize=10)
+    ax.set_ylabel("−log10(FDR)", fontsize=9)
+    ax.set_title(f"Differential abundance - {group.capitalize()}", fontsize=10)
     ax.legend(fontsize=7, frameon=False)
     ax.spines[["top", "right"]].set_visible(False)
 
 
 # ---------------------------------------------------------------------------
-# 7.  RF importance barplot
+# 8.  RF importance barplot
 # ---------------------------------------------------------------------------
 def plot_rf_importance(imp_class: pd.DataFrame,
                        imp_reg:   pd.DataFrame,
@@ -469,18 +471,19 @@ def plot_rf_importance(imp_class: pd.DataFrame,
         ax.spines[["top", "right"]].set_visible(False)
 
     fig.suptitle(
-        f"Random Forest importance – {group.capitalize()}",
+        f"Random Forest importance - {group.capitalize()}",
         fontsize=11, fontweight="bold"
     )
     fig.tight_layout()
     fname = os.path.join(FIG_DIR, f"rf_importance_{group}.tiff")
-    fig.savefig(fname, dpi=DPI, compression="tiff_lzw")
+    plt.gcf().savefig(fname, dpi=DPI, bbox_inches='tight')  # PNG buffer
+    _save_tiff_lzw(fname, DPI)
     print(f"  Saved: {fname}")
     plt.close(fig)
 
 
 # ---------------------------------------------------------------------------
-# 8.  Combined indicator table
+# 9.  Combined indicator table
 # ---------------------------------------------------------------------------
 def build_indicator_table(df_da:    pd.DataFrame,
                           df_cor:   pd.DataFrame,
@@ -488,7 +491,7 @@ def build_indicator_table(df_da:    pd.DataFrame,
                           imp_reg:   pd.DataFrame) -> pd.DataFrame:
     """
     Merge all four analytical approaches into a single ranked table.
-    Combined score = RF_Reg_Imp × |Pearson r|.
+    Combined score = RF_Reg_Imp x |Pearson r|.
     """
     df = (df_da[["Genus", "log2FC", "FDR", "significant"]]
           .merge(df_cor[["Genus", "r", "p_value"]],
@@ -503,7 +506,7 @@ def build_indicator_table(df_da:    pd.DataFrame,
 
 
 # ---------------------------------------------------------------------------
-# 9.  Main
+# 10. Main
 # ---------------------------------------------------------------------------
 def main() -> None:
     # Load all three groups first (needed for joint alpha-diversity figure)
@@ -521,7 +524,7 @@ def main() -> None:
     # Alpha-diversity comparison (all three groups together)
     # ------------------------------------------------------------------
     print("\n" + "="*60)
-    print("  Alpha-diversity (Shannon H') – all groups")
+    print("  Alpha-diversity (Shannon H') - all groups")
     print("="*60)
     alpha_results = []
     for group in groups:
@@ -553,7 +556,7 @@ def main() -> None:
         # Note for fungi: low separation expected (PERMANOVA p=0.450)
         if group == "fungi":
             print("  [Note] Fungal community showed no significant PERMANOVA "
-                  "separation (p=0.450, R²=0.075). Results reported for "
+                  "separation (p=0.450, R2=0.075). Results reported for "
                   "completeness.")
 
         # -- Differential abundance ------------------------------------------
@@ -574,14 +577,15 @@ def main() -> None:
         # -- RF Regressor ----------------------------------------------------
         print("  Training RF Regressor (LOO-CV) …")
         imp_reg, r2, p_val = rf_regressor(abund, meta)
-        print(f"  LOO-CV R²={r2:.3f}, p={p_val:.3f}")
+        print(f"  LOO-CV R2={r2:.3f}, p={p_val:.3f}")
 
         # -- Volcano plot ----------------------------------------------------
         fig, ax = plt.subplots(figsize=(6, 5))
         plot_volcano(df_da, group, ax=ax)
         fig.tight_layout()
         fname_vol = os.path.join(FIG_DIR, f"volcano_{group}.tiff")
-        fig.savefig(fname_vol, dpi=DPI, compression="tiff_lzw")
+        plt.gcf().savefig(fname_vol, dpi=DPI, bbox_inches='tight')  # PNG buffer
+        _save_tiff_lzw(fname_vol, DPI)
         print(f"  Saved: {fname_vol}")
         plt.close(fig)
 
