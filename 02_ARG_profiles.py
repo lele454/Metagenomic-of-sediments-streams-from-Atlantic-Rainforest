@@ -1,23 +1,24 @@
-#Script 02 – ARG Profiles in Preserved vs. Degraded Streams
+"""
+#Script 02 - ARG Profiles in Preserved vs. Degraded Streams
 
 
 #Description
 -----------
   1. Stacked bar chart of raw ARG composition (RPKM) per stream
   2. Z-score heatmap of ARG classes ordered by Preservation Index (PI)
-  3. Spearman correlation heatmap (ARG classes × limnological variables)
+  3. Spearman correlation heatmap (ARG classes x limnological variables)
      with Benjamini-Hochberg FDR correction
-  4. Quantile regression (τ = 0.75) for the strongest ARG–environment pairs
+  4. Quantile regression (tau = 0.75) for the strongest ARG-environment pairs
   5. GLM with quasipoisson distribution + stepwise backward AIC selection
      for each ARG class
 
 ARG annotation was performed with DeepARG v2.0 (protein-long mode,
-probability ≥ 0.80).  Abundances were normalized as RPKM (reads per
+probability >= 0.80).  Abundances were normalized as RPKM (reads per
 kilobase per million).
 
 #Input files
 -----------
-  - data/ARG_RPKM.csv         : ARG class × samples matrix (RPKM values)
+  - data/ARG_RPKM.csv         : ARG class x samples matrix (RPKM values)
   - data/metadata.csv         : SampleID, Degradation, PI, HFP,
                                  + all limnological variables (ammonia,
                                  CDOM, DO, chlorophyll, turbidity, pH,
@@ -36,14 +37,13 @@ kilobase per million).
 
 
 =============================================================================
+"""
 
 import os
 import warnings
-import itertools
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
 import seaborn as sns
 from scipy import stats
 from scipy.stats import spearmanr
@@ -82,8 +82,8 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame]:
 
     Returns
     -------
-    arg_rpkm : pd.DataFrame  – ARG class × samples (RPKM)
-    meta     : pd.DataFrame  – samples × variables
+    arg_rpkm : pd.DataFrame  - ARG class x samples (RPKM)
+    meta     : pd.DataFrame  - samples x variables
     """
     arg_rpkm = pd.read_csv(
         os.path.join(DATA_DIR, "ARG_RPKM.csv"), index_col=0
@@ -106,7 +106,7 @@ def zscore_by_class(df: pd.DataFrame) -> pd.DataFrame:
 def clr_transform(df: pd.DataFrame, pseudocount: float = 1e-6) -> pd.DataFrame:
     """
     Centred log-ratio transformation for compositional data.
-    Adds pseudocount before log₁₀ to handle zeros.
+    Adds pseudocount before log10 to handle zeros.
     """
     df_ps  = df + pseudocount
     log_df = np.log(df_ps)
@@ -114,12 +114,12 @@ def clr_transform(df: pd.DataFrame, pseudocount: float = 1e-6) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
-# 3.  Figure 3a – Stacked bar chart (RPKM)
+# 3.  Figure 3a - Stacked bar chart (RPKM)
 # ---------------------------------------------------------------------------
 def plot_stacked_bars(arg_rpkm: pd.DataFrame, meta: pd.DataFrame) -> None:
     """
     Stacked horizontal bar chart showing ARG class composition per stream,
-    ordered by PI (most degraded → most preserved).
+    ordered by PI (most degraded -> most preserved).
     """
     # Order samples by PI
     order     = meta["PI"].sort_values().index
@@ -149,7 +149,7 @@ def plot_stacked_bars(arg_rpkm: pd.DataFrame, meta: pd.DataFrame) -> None:
         tick.set_color(col)
 
     ax.set_ylabel("ARG class composition (%)", fontsize=10)
-    ax.set_title("Figure 3a – ARG class composition per stream", fontsize=11)
+    ax.set_title("Figure 3a - ARG class composition per stream", fontsize=11)
     ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left",
               fontsize=7, frameon=False, title="ARG class", title_fontsize=8)
     ax.spines[["top", "right"]].set_visible(False)
@@ -161,13 +161,14 @@ def plot_stacked_bars(arg_rpkm: pd.DataFrame, meta: pd.DataFrame) -> None:
 
     fig.tight_layout()
     fname = os.path.join(FIG_DIR, "fig3a_ARG_stacked_bars.tiff")
-    fig.savefig(fname, dpi=DPI, compression="tiff_lzw")
+    plt.gcf().savefig(fname, dpi=DPI, bbox_inches='tight')  # PNG buffer
+    _save_tiff_lzw(fname, DPI)
     print(f"  Saved: {fname}")
     plt.close(fig)
 
 
 # ---------------------------------------------------------------------------
-# 4.  Figure 3b – Z-score heatmap
+# 4.  Figure 3b - Z-score heatmap
 # ---------------------------------------------------------------------------
 def plot_zscore_heatmap(arg_rpkm: pd.DataFrame, meta: pd.DataFrame) -> None:
     """
@@ -192,7 +193,7 @@ def plot_zscore_heatmap(arg_rpkm: pd.DataFrame, meta: pd.DataFrame) -> None:
     ax_bar.set_xlim(0, len(order))
     ax_bar.set_ylim(0, 1)
     ax_bar.axis("off")
-    ax_bar.set_title("Figure 3b – ARG Z-score heatmap (ordered by PI)",
+    ax_bar.set_title("Figure 3b - ARG Z-score heatmap (ordered by PI)",
                       fontsize=11, pad=4)
 
     # Heatmap
@@ -221,24 +222,25 @@ def plot_zscore_heatmap(arg_rpkm: pd.DataFrame, meta: pd.DataFrame) -> None:
 
     fig.tight_layout()
     fname = os.path.join(FIG_DIR, "fig3b_ARG_zscore_heatmap.tiff")
-    fig.savefig(fname, dpi=DPI, compression="tiff_lzw")
+    plt.gcf().savefig(fname, dpi=DPI, bbox_inches='tight')  # PNG buffer
+    _save_tiff_lzw(fname, DPI)
     print(f"  Saved: {fname}")
     plt.close(fig)
 
 
 # ---------------------------------------------------------------------------
-# 5.  Figure 3c – Spearman correlation heatmap (ARG × limnological vars)
+# 5.  Figure 3c - Spearman correlation heatmap (ARG x limnological vars)
 # ---------------------------------------------------------------------------
 def spearman_correlations(arg_rpkm: pd.DataFrame,
                           meta:     pd.DataFrame) -> pd.DataFrame:
     """
-    Compute Spearman ρ between log₁₀(RPKM + 1) of each ARG class and each
+    Compute Spearman rho between log10(RPKM + 1) of each ARG class and each
     limnological variable. Applies Benjamini-Hochberg FDR correction.
 
     Returns
     -------
-    df_rho : pd.DataFrame  – matrix of ρ values (ARG × variable)
-    df_fdr : pd.DataFrame  – matrix of FDR values
+    df_rho : pd.DataFrame  - matrix of rho values (ARG x variable)
+    df_fdr : pd.DataFrame  - matrix of FDR values
     """
     log_arg = np.log10(arg_rpkm + 1)
     vars_avail = [v for v in LIMNO_VARS if v in meta.columns]
@@ -277,9 +279,9 @@ def spearman_correlations(arg_rpkm: pd.DataFrame,
 def plot_spearman_heatmap(df_rho: pd.DataFrame,
                           df_fdr: pd.DataFrame) -> None:
     """
-    Clustered heatmap of Spearman ρ with significance asterisks.
+    Clustered heatmap of Spearman rho with significance asterisks.
     """
-    annot = df_rho.applymap(lambda x: f"{x:.2f}")
+    annot = df_rho.map(lambda x: f"{x:.2f}")
     # Add asterisk where FDR < 0.01
     mask_sig = df_fdr < 0.01
     for r in df_rho.index:
@@ -292,10 +294,10 @@ def plot_spearman_heatmap(df_rho: pd.DataFrame,
         df_rho, ax=ax, annot=annot, fmt="",
         cmap="coolwarm", center=0, vmin=-1, vmax=1,
         linewidths=0.4, linecolor="white",
-        cbar_kws={"label": "Spearman ρ", "shrink": 0.6}
+        cbar_kws={"label": "Spearman rho", "shrink": 0.6}
     )
     ax.set_title(
-        "Figure 3c – Spearman ρ: ARG classes × environmental variables\n"
+        "Figure 3c - Spearman rho: ARG classes x environmental variables\n"
         "(* FDR < 0.01)",
         fontsize=11
     )
@@ -303,13 +305,14 @@ def plot_spearman_heatmap(df_rho: pd.DataFrame,
     ax.set_yticklabels(ax.get_yticklabels(), rotation=0,  fontsize=8)
     fig.tight_layout()
     fname = os.path.join(FIG_DIR, "fig3c_ARG_spearman_heatmap.tiff")
-    fig.savefig(fname, dpi=DPI, compression="tiff_lzw")
+    plt.gcf().savefig(fname, dpi=DPI, bbox_inches='tight')  # PNG buffer
+    _save_tiff_lzw(fname, DPI)
     print(f"  Saved: {fname}")
     plt.close(fig)
 
 
 # ---------------------------------------------------------------------------
-# 6.  Quantile regression (τ = 0.75) for top ARG–variable pairs
+# 6.  Quantile regression (tau = 0.75) for top ARG-variable pairs
 # ---------------------------------------------------------------------------
 def quantile_regression_top_pairs(arg_rpkm: pd.DataFrame,
                                   meta:     pd.DataFrame,
@@ -317,9 +320,9 @@ def quantile_regression_top_pairs(arg_rpkm: pd.DataFrame,
                                   df_fdr:   pd.DataFrame,
                                   top_n:    int = 5) -> None:
     """
-    Fit quantile regression (τ = 0.75) for the top_n ARG–variable pairs
-    with the highest |ρ| and FDR < 0.01.
-    Prints slope, p-value (Wald test), and pseudo-R² for each pair.
+    Fit quantile regression (tau = 0.75) for the top_n ARG-variable pairs
+    with the highest |rho| and FDR < 0.01.
+    Prints slope, p-value (Wald test), and pseudo-R2 for each pair.
     """
     log_arg    = np.log10(arg_rpkm + 1)
     vars_avail = [v for v in LIMNO_VARS if v in meta.columns]
@@ -332,7 +335,7 @@ def quantile_regression_top_pairs(arg_rpkm: pd.DataFrame,
                 pairs.append((abs(df_rho.loc[cls, var]), cls, var))
     pairs.sort(reverse=True)
 
-    print(f"\n  Quantile regression (τ=0.75) – top {top_n} pairs:")
+    print(f"\n  Quantile regression (tau=0.75) - top {top_n} pairs:")
     for _, cls, var in pairs[:top_n]:
         y   = log_arg.loc[cls].values
         x   = meta[var].values
@@ -341,13 +344,13 @@ def quantile_regression_top_pairs(arg_rpkm: pd.DataFrame,
             model = smf.quantreg("y ~ x", df_qr).fit(q=0.75, max_iter=2000)
             print(f"    {cls} ~ {var}: slope={model.params['x']:.4f}, "
                   f"p={model.pvalues['x']:.3e}, "
-                  f"pseudo-R²={model.prsquared:.3f}")
+                  f"pseudo-R2={model.prsquared:.3f}")
         except Exception as e:
             print(f"    {cls} ~ {var}: QR failed ({e})")
 
 
 # ---------------------------------------------------------------------------
-# 7.  GLM – quasipoisson per ARG class
+# 7.  GLM - quasipoisson per ARG class
 # ---------------------------------------------------------------------------
 def run_glm_all_classes(arg_rpkm: pd.DataFrame,
                         meta:     pd.DataFrame) -> pd.DataFrame:
@@ -475,7 +478,7 @@ def main() -> None:
     df_rho, df_fdr = spearman_correlations(arg_rpkm, meta)
     plot_spearman_heatmap(df_rho, df_fdr)
 
-    print("\n[QR] Quantile regression (τ=0.75) …")
+    print("\n[QR] Quantile regression (tau=0.75) …")
     quantile_regression_top_pairs(arg_rpkm, meta, df_rho, df_fdr)
 
     print("\n[GLM] Quasi-Poisson GLMs …")
